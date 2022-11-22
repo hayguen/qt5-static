@@ -2,8 +2,10 @@
 name: Build and Upload QT5 Release Asset
 
 on:
-  push
-
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -13,6 +15,8 @@ env:
   # QT5REPO:   https://code.qt.io/qt/qt5.git
   QT5REPO:   https://github.com/qt/qt5.git
   JOM_DL:    https://download.qt.io/official_releases/jom/jom_1_1_3.zip
+  BUILD_PLATFORM: x64
+  BUILD_CONFIGURATION: Release
 
 
 jobs:
@@ -24,7 +28,7 @@ jobs:
           upload_url: ${{steps.create_release.outputs.upload_url}}
           release_version: ${{env.RELEASE_VERSION}}
       steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Get Release tag
         run: |
             echo "RELEASE_VERSION=v5.15.2" >> $GITHUB_ENV
@@ -36,10 +40,10 @@ jobs:
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-            # tag_name: ${{ github.ref }}
-            # release_name: Release ${{ github.ref }}
-            tag_name: v5.15.2
-            release_name: Release v5.15.2
+            tag_name: ${{ github.ref }}
+            release_name: Release Qt5 5.15.2 ${{ github.ref }}
+            # tag_name: v5.15.2
+            # release_name: Release v5.15.2
             draft: false
             prerelease: false
 
@@ -52,11 +56,11 @@ jobs:
 
       steps:
       - name: Clone repository
-        uses: actions/checkout@v2
-      - name: Install Python 3.7 version
-        uses: actions/setup-python@v1
+        uses: actions/checkout@v3
+      - name: Install Python 3.9
+        uses: actions/setup-python@v4
         with:
-            python-version: '3.7'
+            python-version: '3.9'
             architecture: 'x64'
       - name: Install jom
         run: |
@@ -65,7 +69,12 @@ jobs:
             expand-archive -path "jom.zip"
             echo "${{runner.workspace}}\jom" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
             dir "${{runner.workspace}}\jom"
-
+      - name: VcPkg
+        working-directory: ${{env.GITHUB_WORKSPACE}}
+        run: vcpkg integrate install
+      - name: VcPkg OpenSSL
+        working-directory: ${{env.GITHUB_WORKSPACE}}
+        run: vcpkg --triplet x64-windows-static install openssl
       - name: Compile static Qt version
         run: |
             echo ${{runner.workspace}}
@@ -91,11 +100,9 @@ jobs:
             ${{runner.workspace}}\jom\jom.exe -j4
             nmake install
             dir ${{runner.workspace}}\Qt5bin
-
       - name: Package binaries
         run: |
             7z a ${{runner.workspace}}/qt5_${{env.QT5FNVER}}_static_win-msvc2019-x64.zip ..\Qt5bin
-
       - name: Upload Release Asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
