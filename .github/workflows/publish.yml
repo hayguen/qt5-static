@@ -17,6 +17,7 @@ env:
   JOM_DL:    https://download.qt.io/official_releases/jom/jom_1_1_3.zip
   BUILD_PLATFORM: x64
   BUILD_CONFIGURATION: Release
+  VCPKG_BUILD_TYPE: release
 
 
 jobs:
@@ -96,10 +97,12 @@ jobs:
             cmd.exe /c "call `"C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat`" && set > %temp%\vcvars.txt"
             Get-Content "$env:temp\vcvars.txt" | Foreach-Object { if ($_ -match "^(.*?)=(.*)$") { Set-Content "env:\$($matches[1])" $matches[2] } }
             # Configure Qt5
-            ..\qt5\configure.bat -release -static -no-pch -optimize-size -opengl desktop -platform win32-msvc -prefix "..\Qt5bin" -qt-zlib -qt-libjpeg -qt-libpng -qt-freetype -qt-pcre -skip webengine -nomake tools -nomake tests -nomake examples -opensource -confirm-license
+            ..\qt5\configure.bat -release -static -no-pch -optimize-size -opengl desktop -platform win32-msvc -prefix "..\Qt5bin" -qt-zlib -qt-libjpeg -qt-libpng -qt-freetype -qt-pcre -skip webengine -nomake tools -nomake tests -nomake examples -opensource -openssl -openssl-linked -I $env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static/include -L $env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static/lib -confirm-license
             ${{runner.workspace}}\jom\jom.exe -j4
             nmake install
             dir ${{runner.workspace}}\Qt5bin
+        env:
+          OPENSSL_LIBS: -llibssl -llibcrypto
       - name: Package binaries
         run: |
             7z a ${{runner.workspace}}/qt5_${{env.QT5FNVER}}_static_win-msvc2019-x64.zip ..\Qt5bin
